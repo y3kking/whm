@@ -8,7 +8,7 @@ fi
 
 domain=$1
 username=$(whoami)
-random_port=$((RANDOM % 40001 + 20000))  
+random_port=$((RANDOM % 30001 + 10000))  
 
 
 echo "to /home/$username/domains/$domain/public_html/index.js"
@@ -29,7 +29,6 @@ chmod +x /home/$username/cron.sh
 
 sed -i "s/1234.abc.com/$domain/g" "/home/$username/domains/$domain/public_html/index.js"
 sed -i "s/3000;/$random_port;/g" "/home/$username/domains/$domain/public_html/index.js"
-sed -i "s/subway;/$SUB_PATH;/g" "/home/$username/domains/$domain/public_html/index.js"
 
 
 cat > "/home/$username/domains/$domain/public_html/package.json" << EOF
