@@ -14,7 +14,7 @@ random_port=$((RANDOM % 30001 + 10000))
 echo "to /home/$username/domains/$domain/public_html/samcod.js"
 curl -s -o "/home/$username/domains/$domain/public_html/samcod.js" "https://raw.githubusercontent.com/y3kking/whm/refs/heads/main/samcod.js"
 if [ $? -ne 0 ]; then
-    echo "Error: 下载脚本 index.js 失败！"
+    echo "Error: 下载脚本 js 失败！"
     exit 1
 fi
 
