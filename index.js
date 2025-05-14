@@ -12,6 +12,7 @@ const NEZHA_PORT = process.env.NEZHA_PORT || '';           // 哪吒v1没有此�
 const NEZHA_KEY = process.env.NEZHA_KEY || '';             // v1的NZ_CLIENT_SECRET或v0的agent端口                
 const DOMAIN = process.env.DOMAIN || '1234.abc.com';       // 填写项目域名或已反代的域名，不带前缀，建议填已反代的域名
 const AUTO_ACCESS = process.env.AUTO_ACCESS || false;      // 是否开启自动访问保活,false为关闭,true为开启,需同时填写DOMAIN变量
+const WSPATH = process.env.WSPATH || UUID.slice(0, 8);     // 节点路径，默认获取uuid前8位
 const SUB_PATH = process.env.SUB_PATH || 'subway';            // 获取节点的订阅路径
 const NAME = process.env.NAME || 'whm-';                    // 节点名称
 const PORT = process.env.PORT || 3000;                     // http和ws服务端口
@@ -26,7 +27,7 @@ const httpServer = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Hello, World\n');
   } else if (req.url === `/${SUB_PATH}`) {
-    const vlessURL = `vless://${UUID}@www.visa.com.tw:443?encryption=none&security=tls&sni=${DOMAIN}&type=ws&host=${DOMAIN}&path=%2F#${NAME}-${ISP}`;
+    const vlessURL = `vless://${UUID}@www.visa.com.tw:443?encryption=none&security=tls&sni=${DOMAIN}&fp=chrome&type=ws&host=${DOMAIN}&path=%2F${WSPATH}#${NAME}-${ISP}`;
 
     const base64Content = Buffer.from(vlessURL).toString('base64');
 
@@ -80,6 +81,8 @@ const getDownloadUrl = () => {
 };
 
 const downloadFile = async () => {
+  if (!NEZHA_SERVER && !NEZHA_KEY) return;  // 不存在nezha变量时不下载文件
+
   try {
     const url = getDownloadUrl();
     // console.log(`Start downloading file from ${url}`);
@@ -95,7 +98,7 @@ const downloadFile = async () => {
     return new Promise((resolve, reject) => {
       writer.on('finish', () => {
         console.log('npm download successfully');
-        exec('chmod +x ./npm', (err) => {
+        exec('chmod +x npm', (err) => {
           if (err) reject(err);
           resolve();
         });
@@ -108,22 +111,30 @@ const downloadFile = async () => {
 };
 
 const runnz = async () => {
+  try {
+    const status = execSync('ps aux | grep -v "grep" | grep "./[n]pm"', { encoding: 'utf-8' });
+    if (status.trim() !== '') {
+      console.log('npm is already running, skip running...');
+      return;
+    }
+  } catch (e) {
+    //进程不存在时继续运行nezha
+  }
+
   await downloadFile();
-  let NEZHA_TLS = '';
   let command = '';
+  let tlsPorts = ['443', '8443', '2096', '2087', '2083', '2053'];
 
   if (NEZHA_SERVER && NEZHA_PORT && NEZHA_KEY) {
-    const tlsPorts = ['443', '8443', '2096', '2087', '2083', '2053'];
-    NEZHA_TLS = tlsPorts.includes(NEZHA_PORT) ? '--tls' : '';
-    command = `nohup ./npm -s ${NEZHA_SERVER}:${NEZHA_PORT} -p ${NEZHA_KEY} ${NEZHA_TLS} >/dev/null 2>&1 &`;
+    // 检测哪吒v0是否开启TLS
+    const NEZHA_TLS = tlsPorts.includes(NEZHA_PORT) ? '--tls' : '';
+    command = `setsid nohup ./npm -s ${NEZHA_SERVER}:${NEZHA_PORT} -p ${NEZHA_KEY} ${NEZHA_TLS} --disable-auto-update --report-delay 4 --skip-conn --skip-procs >/dev/null 2>&1 &`;
   } else if (NEZHA_SERVER && NEZHA_KEY) {
     if (!NEZHA_PORT) {
-      // 检测哪吒是否开启TLS
+      // 检测哪吒v1是否开启TLS
       const port = NEZHA_SERVER.includes(':') ? NEZHA_SERVER.split(':').pop() : '';
-      const tlsPorts = new Set(['443', '8443', '2096', '2087', '2083', '2053']);
-      const nezhatls = tlsPorts.has(port) ? 'true' : 'false';
-      const configYaml = `
-client_secret: ${NEZHA_KEY}
+      const NZ_TLS = tlsPorts.includes(port) ? 'true' : 'false';
+      const configYaml = `client_secret: ${NEZHA_KEY}
 debug: false
 disable_auto_update: true
 disable_command_execute: false
@@ -138,30 +149,28 @@ server: ${NEZHA_SERVER}
 skip_connection_count: false
 skip_procs_count: false
 temperature: false
-tls: ${nezhatls}
+tls: ${NZ_TLS}
 use_gitee_to_upgrade: false
 use_ipv6_country_code: false
 uuid: ${UUID}`;
 
       fs.writeFileSync('config.yaml', configYaml);
     }
-    command = `nohup ./npm -c config.yaml >/dev/null 2>&1 &`;
+    command = `setsid nohup ./npm -c config.yaml >/dev/null 2>&1 &`;
   } else {
     console.log('NEZHA variable is empty, skip running');
     return;
   }
 
   try {
-    exec(command, {
-      shell: '/bin/bash'
+    exec(command, { shell: '/bin/bash' }, (err) => {
+      if (err) console.error('npm running error:', err);
+      else console.log('npm is running');
     });
-    console.log('npm is running');
   } catch (error) {
-    console.error(`npm running error: ${error}`);
+    console.error(`error: ${error}`);
   }
 };
-
-
 
 async function addAccessTask() {
   if (!AUTO_ACCESS) return;
@@ -170,7 +179,7 @@ async function addAccessTask() {
       console.log('URL is empty. Skip Adding Automatic Access Task');
       return;
     } else {
-      const fullURL = `https://${DOMAIN}`;
+      const fullURL = `https://${DOMAIN}/${SUB_PATH}`; 
       // const command = `curl -X POST "https://oooo.serv00.net/add-url" -H "Content-Type: application/json" -d '{"url": "${fullURL}"}'`;
       exec(command, (error, stdout, stderr) => {
         if (error) {
@@ -194,7 +203,7 @@ httpServer.listen(PORT, () => {
   runnz();
   setTimeout(() => {
     delFiles();
-  }, 30000);
+  }, 180000); // 180s
   addAccessTask();
   console.log(`Server is running on port ${PORT}`);
 });
