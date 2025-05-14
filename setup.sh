@@ -38,7 +38,7 @@ cat > "/home/$username/domains/$domain/public_html/package.json" << EOF
   "description": "Node.js Server",
   "main": "index.js",
   "author": "eoovve",
-  "repository": "https://github.com/y3kking/whm",
+  "repository": "",
   "license": "MIT",
   "private": false,
   "scripts": {
@@ -46,7 +46,8 @@ cat > "/home/$username/domains/$domain/public_html/package.json" << EOF
   },
   "dependencies": {
     "ws": "^8.14.2",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "mime-types": "^2.1.35"
   },
   "engines": {
     "node": ">=14"
