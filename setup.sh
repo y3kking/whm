@@ -54,7 +54,7 @@ cat > "/home/$username/domains/$domain/public_html/package.json" << EOF
 }
 EOF
 
-echo "*/1 * * * * /home/$username/cron.sh" > ./mycron
+echo "*/5 * * * * /home/$username/cron.sh >/dev/null 2>&1" > ./mycron
 crontab ./mycron >/dev/null 2>&1
 rm ./mycron
 
